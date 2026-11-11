@@ -1,0 +1,406 @@
+
+from decimal import Decimal, InvalidOperation
+import os
+
+# ============================================================
+#                 SISTEMA DE GESTION DE FARMACIA
+# ============================================================
+
+STOCK_BAJO = 5
+
+# COLORES
+VERDE = "\033[92m"
+ROJO = "\033[91m"
+AMARILLO = "\033[93m"
+AZUL = "\033[94m"
+CELESTE = "\033[96m"
+MORADO = "\033[95m"
+BLANCO = "\033[97m"
+RESET = "\033[0m"
+
+
+# ============================================================
+#                    BASE DE DATOS INICIAL
+# ============================================================
+
+medicamentos = {
+    "PAR001": {
+        "nombre": "Paracetamol 500 mg",
+        "precio": Decimal("0.50"),
+        "stock": 30
+    },
+    "LOR001": {
+        "nombre": "Loratadina 10 mg",
+        "precio": Decimal("1.00"),
+        "stock": 4
+    },
+    "SUE001": {
+        "nombre": "Suero fisiologico",
+        "precio": Decimal("5.00"),
+        "stock": 12
+    }
+}
+
+
+# ============================================================
+#                    FUNCIONES GENERALES
+# ============================================================
+
+def limpiar():
+    os.system("cls" if os.name == "nt" else "clear")
+
+
+def encabezado(titulo):
+    print(CELESTE + "=" * 65)
+    print(titulo.center(65))
+    print("=" * 65 + RESET)
+
+
+def pausa():
+    input(f"\n{AMARILLO}Presiona ENTER para continuar...{RESET}")
+
+
+def pedir_entero(mensaje, minimo=0):
+    while True:
+        try:
+            valor = int(input(mensaje))
+
+            if valor < minimo:
+                print(ROJO + "Cantidad no valida." + RESET)
+                continue
+
+            return valor
+
+        except ValueError:
+            print(ROJO + "Ingresa un numero entero." + RESET)
+
+
+def pedir_precio(mensaje):
+    while True:
+        try:
+            precio = Decimal(
+                input(mensaje).strip().replace(",", ".")
+            )
+
+            if not precio.is_finite() or precio < 0:
+                print(ROJO + "Precio no valido." + RESET)
+                continue
+
+            return precio
+
+        except InvalidOperation:
+            print(ROJO + "Ingresa un precio correcto." + RESET)
+
+
+def buscar_por_codigo(codigo):
+    return medicamentos.get(codigo.strip().upper())
+
+
+# ============================================================
+#                  REGISTRAR MEDICAMENTOS
+# ============================================================
+
+def registrar_medicamento():
+    limpiar()
+    encabezado("REGISTRO DE MEDICAMENTOS")
+
+    codigo = input("Codigo del medicamento: ").strip().upper()
+
+    if not codigo:
+        print(ROJO + "El codigo no puede estar vacio." + RESET)
+        return
+
+    if codigo in medicamentos:
+        print(ROJO + "Este codigo ya existe." + RESET)
+        return
+
+    nombre = input("Nombre del medicamento: ").strip()
+
+    if not nombre:
+        print(ROJO + "El nombre es obligatorio." + RESET)
+        return
+
+    precio = pedir_precio("Precio de venta: S/ ")
+    stock = pedir_entero("Stock inicial: ")
+
+    medicamentos[codigo] = {
+        "nombre": nombre,
+        "precio": precio,
+        "stock": stock
+    }
+
+    print(VERDE + "\nMedicamento registrado correctamente." + RESET)
+
+
+# ============================================================
+#                   MOSTRAR INVENTARIO
+# ============================================================
+
+def mostrar_medicamentos():
+    limpiar()
+    encabezado("INVENTARIO GENERAL")
+
+    if not medicamentos:
+        print(AMARILLO + "No existen medicamentos registrados." + RESET)
+        return
+
+    print(
+        f"{'CODIGO':<12}"
+        f"{'MEDICAMENTO':<27}"
+        f"{'PRECIO':>12}"
+        f"{'STOCK':>10}"
+    )
+
+    print("-" * 65)
+
+    for codigo, medicamento in medicamentos.items():
+
+        stock = medicamento["stock"]
+
+        if stock <= STOCK_BAJO:
+            color = ROJO
+            estado = "BAJO"
+        else:
+            color = VERDE
+            estado = "OK"
+
+        print(
+            f"{codigo:<12}"
+            f"{medicamento['nombre']:<27}"
+            f"S/ {medicamento['precio']:>8.2f}"
+            f"{color}{stock:>7} {estado}{RESET}"
+        )
+
+    print("-" * 65)
+
+
+# ============================================================
+#                    BUSCAR MEDICAMENTOS
+# ============================================================
+
+def buscar_medicamento():
+    limpiar()
+    encabezado("BUSQUEDA DE MEDICAMENTOS")
+
+    codigo = input("Ingrese el codigo: ").strip().upper()
+
+    medicamento = buscar_por_codigo(codigo)
+
+    if medicamento is None:
+        print(ROJO + "\nMedicamento no encontrado." + RESET)
+        return
+
+    print(VERDE + "\nMEDICAMENTO ENCONTRADO" + RESET)
+    print("-" * 45)
+
+    print("Codigo:", codigo)
+    print("Nombre:", medicamento["nombre"])
+    print(f"Precio: S/ {medicamento['precio']:.2f}")
+    print("Stock:", medicamento["stock"])
+
+    if medicamento["stock"] <= STOCK_BAJO:
+        print(ROJO + "ALERTA: STOCK BAJO" + RESET)
+    else:
+        print(VERDE + "Estado: DISPONIBLE" + RESET)
+
+
+# ============================================================
+#                    REGISTRAR VENTAS
+# ============================================================
+
+def registrar_salida():
+    limpiar()
+    encabezado("REGISTRO DE VENTAS Y SALIDAS")
+
+    codigo = input("Codigo del medicamento: ").strip().upper()
+
+    medicamento = buscar_por_codigo(codigo)
+
+    if medicamento is None:
+        print(ROJO + "Medicamento no encontrado." + RESET)
+        return
+
+    print("\nProducto:", medicamento["nombre"])
+    print("Stock disponible:", medicamento["stock"])
+    print(f"Precio unitario: S/ {medicamento['precio']:.2f}")
+
+    cantidad = pedir_entero("Cantidad vendida: ", 1)
+
+    if cantidad > medicamento["stock"]:
+        print(ROJO + "\nStock insuficiente. Venta cancelada." + RESET)
+        return
+
+    total = medicamento["precio"] * cantidad
+
+    medicamento["stock"] -= cantidad
+
+    print(VERDE + "\nVENTA REGISTRADA CORRECTAMENTE" + RESET)
+    print("-" * 45)
+    print("Producto:", medicamento["nombre"])
+    print("Cantidad:", cantidad)
+    print(f"Total: S/ {total:.2f}")
+    print("Stock restante:", medicamento["stock"])
+
+
+# ============================================================
+#                  REPONER EXISTENCIAS
+# ============================================================
+
+def reponer_existencias():
+    limpiar()
+    encabezado("REPOSICION DE MEDICAMENTOS")
+
+    codigo = input("Codigo del medicamento: ").strip().upper()
+
+    medicamento = buscar_por_codigo(codigo)
+
+    if medicamento is None:
+        print(ROJO + "Medicamento no encontrado." + RESET)
+        return
+
+    print("\nProducto:", medicamento["nombre"])
+    print("Stock actual:", medicamento["stock"])
+
+    cantidad = pedir_entero("Cantidad a reponer: ", 1)
+
+    medicamento["stock"] += cantidad
+
+    print(VERDE + "\nREPOSICION EXITOSA" + RESET)
+    print("Nuevo stock:", medicamento["stock"])
+
+
+# ============================================================
+#                    REPORTE DE INVENTARIO
+# ============================================================
+
+def reporte_inventario():
+    limpiar()
+    encabezado("REPORTE GENERAL DE INVENTARIO")
+
+    if not medicamentos:
+        print("No hay productos registrados.")
+        return
+
+    valor_total = Decimal("0.00")
+    productos_bajos = 0
+    unidades_totales = 0
+
+    for medicamento in medicamentos.values():
+
+        valor_total += (
+            medicamento["precio"] * medicamento["stock"]
+        )
+
+        unidades_totales += medicamento["stock"]
+
+        if medicamento["stock"] <= STOCK_BAJO:
+            productos_bajos += 1
+
+    print("\nRESUMEN DEL INVENTARIO")
+    print("-" * 45)
+
+    print("Medicamentos registrados:", len(medicamentos))
+    print("Unidades disponibles:", unidades_totales)
+
+    print(f"Valor del inventario: S/ {valor_total:.2f}")
+
+    print(
+        f"Productos con stock bajo: "
+        f"{ROJO}{productos_bajos}{RESET}"
+    )
+
+    print("\nALERTAS DE STOCK")
+    print("-" * 45)
+
+    encontrados = False
+
+    for codigo, medicamento in medicamentos.items():
+
+        if medicamento["stock"] <= STOCK_BAJO:
+
+            encontrados = True
+
+            print(
+                ROJO
+                + f"{codigo} - {medicamento['nombre']} "
+                + f"({medicamento['stock']} unidades)"
+                + RESET
+            )
+
+    if not encontrados:
+        print(VERDE + "Todos los productos tienen stock suficiente." + RESET)
+
+
+# ============================================================
+#                       MENU PRINCIPAL
+# ============================================================
+
+def menu_principal():
+
+    while True:
+
+        limpiar()
+
+        print(MORADO + "=" * 65)
+        print("              SISTEMA DE GESTION")
+        print("                    FARMACIA")
+        print("=" * 65 + RESET)
+
+        print(CELESTE + "\n[ 1 ] GESTION DE PRODUCTOS" + RESET)
+        print("      1. Registrar medicamento")
+        print("      2. Mostrar inventario")
+        print("      3. Buscar medicamento")
+
+        print(CELESTE + "\n[ 2 ] MOVIMIENTOS DE STOCK" + RESET)
+        print("      4. Registrar venta o salida")
+        print("      5. Reponer existencias")
+
+        print(CELESTE + "\n[ 3 ] INFORMACION Y REPORTES" + RESET)
+        print("      6. Reporte de inventario")
+
+        print(ROJO + "\n[ 4 ] SALIR DEL SISTEMA" + RESET)
+        print("      7. Cerrar programa")
+
+        print(AZUL + "\n" + "-" * 65 + RESET)
+
+        opcion = input("Seleccione una opcion: ").strip()
+
+        opciones = {
+            "1": registrar_medicamento,
+            "2": mostrar_medicamentos,
+            "3": buscar_medicamento,
+            "4": registrar_salida,
+            "5": reponer_existencias,
+            "6": reporte_inventario
+        }
+
+        if opcion in opciones:
+
+            opciones[opcion]()
+            pausa()
+
+        elif opcion == "7":
+
+            limpiar()
+            encabezado("CIERRE DEL SISTEMA")
+
+            print(
+                VERDE
+                + "\nGracias por utilizar nuestro sistema."
+                + RESET
+            )
+
+            break
+
+        else:
+
+            print(ROJO + "\nOpcion incorrecta. Intenta nuevamente." + RESET)
+            pausa()
+
+
+# ============================================================
+#                    INICIAR PROGRAMA
+# ============================================================
+
+if __name__ == "__main__":
+    menu_principal()
